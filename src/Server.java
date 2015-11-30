@@ -27,6 +27,8 @@ public class Server extends JFrame {
 	private JButton startBtn; // 서버를 실행시킨 버튼
 	JTextArea textArea; // 클라이언트 및 서버 메시지 출력
 
+	// 이거슨 update test
+	
 	private ServerSocket socket; //서버소켓
 	private Socket soc; // 연결소켓 
 
