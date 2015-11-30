@@ -25,10 +25,8 @@ public class Server extends JFrame {
 	private static final int PORT = 30000;
 	private JPanel contentPane;
 	private JButton startBtn; // 서버를 실행시킨 버튼
-	JTextArea textArea; // 클라이언트 및 서버 메시지 출력
-
-	// 이거슨 update test
-	
+	private JTextArea textArea; // 클라이언트 및 서버 메시지 출력
+	private int playerNum=0;
 	private ServerSocket socket; //서버소켓
 	private Socket soc; // 연결소켓 
 
@@ -68,8 +66,7 @@ public class Server extends JFrame {
 		textArea.setEditable(false); // textArea를 사용자가 수정 못하게끔 막는다.	
 	}
 	
-	class Myaction implements ActionListener // 내부클래스로 액션 이벤트 처리 클래스
-	{
+	class Myaction implements ActionListener { // 내부클래스로 액션 이벤트 처리 클래스
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			// 액션 이벤트가 sendBtn일때 또는 textField 에세 Enter key 치면
@@ -102,10 +99,12 @@ public class Server extends JFrame {
 					try {
 						textArea.append("사용자 접속 대기중...\n");
 						soc = socket.accept(); // accept가 일어나기 전까지는 무한 대기중
+						playerNum++;
 						textArea.append("사용자 접속!!\n");
-						UserInfo user = new UserInfo(soc, vc); // 연결된 소켓 정보는 금방 사라지므로, user 클래스 형태로 객체 생성
+						UserInfo user = new UserInfo(soc, vc, playerNum); // 연결된 소켓 정보는 금방 사라지므로, user 클래스 형태로 객체 생성
 	                                // 매개변수로 현재 연결된 소켓과, 벡터를 담아둔다
 						vc.add(user); // 해당 벡터에 사용자 객체를 추가
+						
 						user.start(); // 만든 객체의 스레드 실행
 					} catch (IOException e) {
 						textArea.append("!!!! accept 에러 발생... !!!!\n");
@@ -124,11 +123,13 @@ public class Server extends JFrame {
 		private Socket user_socket;
 		private Vector user_vc;
 		private String Nickname = "";
+		private int playerNo;
 
-		public UserInfo(Socket soc, Vector vc) { // 생성자메소드
+		public UserInfo(Socket soc, Vector vc, int playerNo) { // 생성자메소드
 			// 매개변수로 넘어온 자료 저장
 			this.user_socket = soc;
 			this.user_vc = vc;
+			this.playerNo = playerNo;
 
 			User_network();
 		}
@@ -141,19 +142,17 @@ public class Server extends JFrame {
 				dos = new DataOutputStream(os);
 
 				//Nickname = dis.readUTF(); // 사용자의 닉네임 받는부분
-				byte[] b=new byte[128];
-				dis.read(b);
-				String Nickname = new String(b);
-				Nickname = Nickname.trim();
-				textArea.append("ID " + Nickname + " 접속\n");
-				textArea.setCaretPosition(textArea.getText().length());		
-				send_Message(Nickname + "님 환영합니다."); // 연결된 사용자에게 정상접속을 알림
-
+				
+				//byte[] b=new byte[128];
+				dos.writeInt(playerNo);
+				//String Nickname = new String(b);
+				//Nickname = Nickname.trim();
+				textArea.append("Player NO. " + playerNo + " 접속\n");
+				textArea.setCaretPosition(textArea.getText().length());	
 			} catch (Exception e) {
 				textArea.append("스트림 셋팅 에러\n");
 				textArea.setCaretPosition(textArea.getText().length());
 			}
-
 		}
 
 		public void InMessage(String str) {
