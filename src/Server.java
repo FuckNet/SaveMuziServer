@@ -3,6 +3,7 @@
 import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -142,11 +143,10 @@ public class Server extends JFrame {
 				dos = new DataOutputStream(os);
 
 				//Nickname = dis.readUTF(); // 사용자의 닉네임 받는부분
-				
 				//byte[] b=new byte[128];
-				dos.writeInt(playerNo);
 				//String Nickname = new String(b);
 				//Nickname = Nickname.trim();
+				dos.writeInt(playerNo);
 				textArea.append("Player NO. " + playerNo + " 접속\n");
 				textArea.setCaretPosition(textArea.getText().length());	
 			} catch (Exception e) {
@@ -156,7 +156,7 @@ public class Server extends JFrame {
 		}
 
 		public void InMessage(String str) {
-			//textArea.append("사용자로부터 들어온 메세지 : " + str+"\n");
+			textArea.append("사용자로부터 들어온 메세지 : " + str+"\n");
 			textArea.append(str + "\n");
 			textArea.setCaretPosition(textArea.getText().length());
 			// 사용자 메세지 처리
@@ -184,6 +184,7 @@ public class Server extends JFrame {
 		}
 
 		public void run() { // 스레드 정의
+			// 게임 전
 			while (true) {
 				try {
 					// 사용자에게 받는 메세지
@@ -191,7 +192,42 @@ public class Server extends JFrame {
 					dis.read(b);
 					String msg = new String(b);
 					msg = msg.trim();
-					//String msg = dis.readUTF();
+					String splitMsg[];
+					splitMsg = msg.split(" ");
+					if(splitMsg.length < 1)
+						return;
+					if(splitMsg[0].equals("/START")) {
+						msg = "/START "+playerNum;
+						InMessage(msg);
+						textArea.append("게임 시작!\n");
+						break;
+					}
+				}
+				catch (IOException e) { 
+					try {
+						dos.close();
+						dis.close();
+						user_socket.close();
+						vc.removeElement( this ); // 에러가난 현재 객체를 벡터에서 지운다
+						textArea.append("현재 벡터에 담겨진 사용자 수 : " + vc.size() + "\n");
+						textArea.append("사용자 접속 끊어짐 자원 반납\n");
+						textArea.setCaretPosition(textArea.getText().length());
+						playerNum--;
+						return;
+					} catch (Exception ee) {
+					
+					}// catch문 끝
+				}// 바깥 catch문끝
+			}
+			
+			// 게임 중
+			while (true) {
+				try {
+					// 사용자에게 받는 메세지
+					byte[] b = new byte[128];
+					dis.read(b);
+					String msg = new String(b);
+					msg = msg.trim();
 					InMessage(msg);
 				} 
 				catch (IOException e) { 
@@ -199,11 +235,12 @@ public class Server extends JFrame {
 						dos.close();
 						dis.close();
 						user_socket.close();
-						vc.removeElement( this ); // 에러가난 현재 객체를 벡터에서 지운다
-						textArea.append(vc.size() +" : 현재 벡터에 담겨진 사용자 수\n");
+						vc.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
+						textArea.append("현재 벡터에 담겨진 사용자 수 : " + vc.size() + "\n");
 						textArea.append("사용자 접속 끊어짐 자원 반납\n");
 						textArea.setCaretPosition(textArea.getText().length());
-						break;
+						playerNum--;
+						return;
 					} catch (Exception ee) {
 					
 					}// catch문 끝
