@@ -35,6 +35,7 @@ public class Server extends JFrame {
 	private int playerNum = 0;
 	private ServerSocket socket; // 서버소켓
 	private Socket soc; // 연결소켓
+	private PingTest pingTest;
 
 	private Vector<UserInfo> vc = new Vector<UserInfo>(); // 연결된 사용자를 저장할 벡터
 
@@ -45,6 +46,8 @@ public class Server extends JFrame {
 
 	public Server() {
 		init();
+		pingTest = new PingTest();
+		pingTest.start();
 	}
 
 	private void init() { // GUI를 구성하는 메소드
@@ -130,7 +133,22 @@ public class Server extends JFrame {
 		});
 		th.start();
 	}
-
+	class PingTest extends Thread {
+		public void run() {
+			while(true) {
+				try {
+					sleep(10000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				if(vc.size()!=0 && vc.get(0).getNetState() == NETSTATE.Game) {
+					//System.out.println(System.currentTimeMillis());
+					vc.get(0).broad_cast("/PING");
+				}
+			}
+		}
+	}
 	class UserInfo extends Thread {
 		private InputStream is;
 		private OutputStream os;
@@ -144,6 +162,9 @@ public class Server extends JFrame {
 		
 		public void setNetState(NETSTATE netState) {
 			this.netState = netState;
+		}
+		public NETSTATE getNetState() {
+			return this.netState;
 		}
 		public UserInfo(Socket soc, Vector<UserInfo> vc, int playerNo) { // 생성자메소드
 			// 매개변수로 넘어온 자료 저장
@@ -247,6 +268,10 @@ public class Server extends JFrame {
 						dis.read(b);
 						String msg = new String(b);
 						msg = msg.trim();
+						if(msg.equals("/PING")) {
+							System.out.println(playerNo + " " + System.currentTimeMillis());
+							continue;
+						}
 						InMessage(msg);
 					} catch (IOException e) {
 						try {
