@@ -31,8 +31,8 @@ public class Server extends JFrame {
 	static BufferedReader in; // 파일입력
 	static HashMap<String, String> logInfo = new HashMap<String, String>();
 	
-	private Vector<Room> rooms  = new Vector<Room>(); // 연결된 사용자를 저장할 벡터;
-	private Vector<UserInfo> users = new Vector<UserInfo>(); // 연결된 사용자를 저장할 벡터
+	Vector<Room> rooms  = new Vector<Room>(); // 연결된 사용자를 저장할 벡터;
+	Vector<UserInfo> users = new Vector<UserInfo>(); // 연결된 사용자를 저장할 벡터
 
 	public static void main(String[] args) {
 		Server frame = new Server();

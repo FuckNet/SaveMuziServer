@@ -24,6 +24,12 @@ class UserInfo extends Thread {
 	private BufferedWriter out; // 파일출력
 	private NETSTATE netState = NETSTATE.Login;
 
+	private String userID;
+
+	public String getUserID() {
+		return userID;
+	}
+
 	public void setNetState(NETSTATE netState) {
 		this.netState = netState;
 	}
@@ -141,15 +147,12 @@ class UserInfo extends Thread {
 					} else if (!Server.logInfo.get(splitMsg[1]).equals(splitMsg[2])) {
 						send_Message("/WRONGPW");
 					} else {
-						send_Message("/SUCCESSLOGIN " + splitMsg[1] + " " + splitMsg[2]);
-						// textArea.append("ID " + user[0] + " 접속\n");
-						// textArea.setCaretPosition(textArea.getText().length());
-						send_Message(splitMsg[1] + "님 환영합니다."); // 연결된 사용자에게
-																// 정상접속을 알림
+						send_Message("/SUCCESSLOGIN " + splitMsg[1] + " " + splitMsg[2] + " " + server.rooms.size());
 						netState = NETSTATE.Lobby;
+						userID = splitMsg[1];
+						send_Message(splitMsg[1] + "님 환영합니다."); // 연결된 사용자에게
 					}
-				}
-				else if (splitMsg[0].equals("/SIGNUP")) {
+				} else if (splitMsg[0].equals("/SIGNUP")) {
 					if (Server.logInfo.containsKey(splitMsg[1])) {
 						send_Message("/EXTID");
 					} else {
@@ -168,9 +171,19 @@ class UserInfo extends Thread {
 					server.addRoom(room);
 					netState = NETSTATE.Room;
 				} else if (splitMsg[0].equals("/ENTERROOM")) {
+					int roomNumber = Integer.parseInt(splitMsg[1]);
+					Room room = server.rooms.get(roomNumber - 1);
+					Vector<UserInfo> tempUsers = room.getUsers();
+					String tempStr = "/ENTERROOM";
 					// 자기 자신을 서버에서 제거하고 룸으로 이동.
+					for (int i = 0; i < tempUsers.size(); i++) {
+						tempUsers.get(i).send_Message("/ENTERUSER " + splitMsg[2]);
+						tempStr += " " + tempUsers.get(i).getUserID();
+					}
 					users.remove(this);
-					server.addUserToRoom(this, Integer.parseInt(splitMsg[1]) - 1);
+					server.addUserToRoom(this, roomNumber - 1);
+					
+					send_Message(tempStr);
 					netState = NETSTATE.Room;
 				} else {
 					broad_cast(msg);
