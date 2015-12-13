@@ -1,43 +1,31 @@
 
 // Java Chatting Server
 
-import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Vector;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
 public class Server extends JFrame {
-	private static enum NETSTATE {
-		Chat, Game
-	};
-
 	private static final int PORT = 30000;
 	private JPanel contentPane;
 	private JButton startBtn; // 서버를 실행시킨 버튼
-	private JTextArea textArea; // 클라이언트 및 서버 메시지 출력
-	private int playerNum = 0;
+	JTextArea textArea; // 클라이언트 및 서버 메시지 출력
+	int playerCnt = 0;
 	private ServerSocket socket; // 서버소켓
 	private Socket soc; // 연결소켓
-	private PingTest pingTest;
 
-	private Vector<UserInfo> vc = new Vector<UserInfo>(); // 연결된 사용자를 저장할 벡터
+	private Vector<Room> rooms  = new Vector<Room>(); // 연결된 사용자를 저장할 벡터;
+	private Vector<UserInfo> users = new Vector<UserInfo>(); // 연결된 사용자를 저장할 벡터
 
 	public static void main(String[] args) {
 		Server frame = new Server();
@@ -46,8 +34,6 @@ public class Server extends JFrame {
 
 	public Server() {
 		init();
-		pingTest = new PingTest();
-		pingTest.start();
 	}
 
 	private void init() { // GUI를 구성하는 메소드
@@ -82,9 +68,15 @@ public class Server extends JFrame {
 			if (e.getSource() == startBtn)
 				server_start();
 		}
-
 	}
 
+	void addRoom(Room room) {
+		this.rooms.add(room);
+	}
+	void addUserToRoom(UserInfo userInfo, int roomIdx) {
+		
+		rooms.get(roomIdx).addUser(userInfo);
+	}
 	private void server_start() {
 		try {
 			socket = new ServerSocket(PORT); // 서버가 포트 여는부분
@@ -109,21 +101,10 @@ public class Server extends JFrame {
 					try {
 						textArea.append("사용자 접속 대기중...\n");
 						soc = socket.accept(); // accept가 일어나기 전까지는 무한 대기중
-						playerNum++;
+						playerCnt++;
 						textArea.append("사용자 접속!!\n");
-						UserInfo user = new UserInfo(soc, vc, playerNum); // 연결된
-																			// 소켓
-																			// 정보는
-																			// 금방
-																			// 사라지므로,
-																			// user
-																			// 클래스
-																			// 형태로
-																			// 객체
-																			// 생성
-						// 매개변수로 현재 연결된 소켓과, 벡터를 담아둔다
-						vc.add(user); // 해당 벡터에 사용자 객체를 추가
-
+						UserInfo user = new UserInfo(soc, users, playerCnt, Server.this);
+						users.add(user); // 해당 벡터에 사용자 객체를 추가
 						user.start(); // 만든 객체의 스레드 실행
 					} catch (IOException e) {
 						textArea.append("!!!! accept 에러 발생... !!!!\n");
@@ -132,165 +113,5 @@ public class Server extends JFrame {
 			}
 		});
 		th.start();
-	}
-	class PingTest extends Thread {
-		public void run() {
-			while(true) {
-				try {
-					sleep(10000);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				if(vc.size()!=0 && vc.get(0).getNetState() == NETSTATE.Game) {
-					//System.out.println(System.currentTimeMillis());
-					vc.get(0).broad_cast("/PING");
-				}
-			}
-		}
-	}
-	class UserInfo extends Thread {
-		private InputStream is;
-		private OutputStream os;
-		private DataInputStream dis;
-		private DataOutputStream dos;
-		private Socket user_socket;
-		private Vector<UserInfo> user_vc;
-		private String Nickname = "";
-		private int playerNo;
-		private NETSTATE netState = NETSTATE.Chat;
-		
-		public void setNetState(NETSTATE netState) {
-			this.netState = netState;
-		}
-		public NETSTATE getNetState() {
-			return this.netState;
-		}
-		public UserInfo(Socket soc, Vector<UserInfo> vc, int playerNo) { // 생성자메소드
-			// 매개변수로 넘어온 자료 저장
-			this.user_socket = soc;
-			this.user_vc = vc;
-			this.playerNo = playerNo;
-
-			User_network();
-		}
-
-		public void User_network() {
-			try {
-				is = user_socket.getInputStream();
-				dis = new DataInputStream(is);
-				os = user_socket.getOutputStream();
-				dos = new DataOutputStream(os);
-
-				// Nickname = dis.readUTF(); // 사용자의 닉네임 받는부분
-				// byte[] b=new byte[128];
-				// String Nickname = new String(b);
-				// Nickname = Nickname.trim();
-				dos.writeInt(playerNo);
-				textArea.append("Player NO. " + playerNo + " 접속\n");
-				textArea.setCaretPosition(textArea.getText().length());
-			} catch (Exception e) {
-				textArea.append("스트림 셋팅 에러\n");
-				textArea.setCaretPosition(textArea.getText().length());
-			}
-		}
-
-		public void InMessage(String str) {
-			textArea.append("사용자로부터 들어온 메세지 : " + str + "\n");
-			textArea.append(str + "\n");
-			textArea.setCaretPosition(textArea.getText().length());
-			// 사용자 메세지 처리
-			broad_cast(str);
-		}
-
-		public void broad_cast(String str) {
-			for (int i = 0; i < user_vc.size(); i++) {
-				UserInfo imsi = user_vc.elementAt(i);
-				imsi.send_Message(str);
-			}
-		}
-
-		public void send_Message(String str) {
-			try {
-				// dos.writeUTF(str);
-				byte[] bb;
-				bb = str.getBytes();
-				dos.write(bb); // .writeUTF(str);
-			} catch (IOException e) {
-				textArea.append("메시지 송신 에러 발생\n");
-				textArea.setCaretPosition(textArea.getText().length());
-			}
-		}
-
-		public void run() { // 스레드 정의
-			while (true) {
-				switch (netState) {
-				case Chat:
-					try {
-						// 사용자에게 받는 메세지
-						byte[] b = new byte[128];
-						dis.read(b);
-						String msg = new String(b);
-						msg = msg.trim();
-						String splitMsg[];
-						splitMsg = msg.split(" ");
-						if (splitMsg.length < 1)
-							return;
-						if (splitMsg[0].equals("/START")) {
-							for (int i = 0; i < user_vc.size(); i++) {
-								UserInfo imsi = user_vc.elementAt(i);
-								imsi.setNetState(NETSTATE.Game);
-							}
-							msg = "/START " + playerNum;
-							InMessage(msg);
-							textArea.append("게임 시작!\n");
-						}
-					} catch (IOException e) {
-						try {
-							dos.close();
-							dis.close();
-							user_socket.close();
-							vc.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
-							textArea.append("현재 벡터에 담겨진 사용자 수 : " + vc.size() + "\n");
-							textArea.append("사용자 접속 끊어짐 자원 반납\n");
-							textArea.setCaretPosition(textArea.getText().length());
-							playerNum--;
-							return;
-						} catch (Exception ee) {
-
-						} // catch문 끝
-					} // 바깥 catch문끝'
-					break;
-				case Game:
-					try {
-						// 사용자에게 받는 메세지
-						byte[] b = new byte[128];
-						dis.read(b);
-						String msg = new String(b);
-						msg = msg.trim();
-						if(msg.equals("/PING")) {
-							System.out.println(playerNo + " " + System.currentTimeMillis());
-							continue;
-						}
-						InMessage(msg);
-					} catch (IOException e) {
-						try {
-							dos.close();
-							dis.close();
-							user_socket.close();
-							vc.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
-							textArea.append("현재 벡터에 담겨진 사용자 수 : " + vc.size() + "\n");
-							textArea.append("사용자 접속 끊어짐 자원 반납\n");
-							textArea.setCaretPosition(textArea.getText().length());
-							playerNum--;
-							return;
-						} catch (Exception ee) {
-
-						} // catch문 끝
-					} // 바깥 catch문끝
-					break;
-				}
-			} // run메소드 끝
-		} // 내부 userinfo클래스끝
 	}
 }
