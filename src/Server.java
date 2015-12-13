@@ -3,9 +3,12 @@
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.Vector;
 
 import javax.swing.JButton;
@@ -16,6 +19,7 @@ import javax.swing.JTextArea;
 import javax.swing.border.EmptyBorder;
 
 public class Server extends JFrame {
+	static final String FILE_NAME = "res/userInfo.txt";
 	private static final int PORT = 30000;
 	private JPanel contentPane;
 	private JButton startBtn; // 서버를 실행시킨 버튼
@@ -23,7 +27,10 @@ public class Server extends JFrame {
 	int playerCnt = 0;
 	private ServerSocket socket; // 서버소켓
 	private Socket soc; // 연결소켓
-
+	
+	static BufferedReader in; // 파일입력
+	static HashMap<String, String> logInfo = new HashMap<String, String>();
+	
 	private Vector<Room> rooms  = new Vector<Room>(); // 연결된 사용자를 저장할 벡터;
 	private Vector<UserInfo> users = new Vector<UserInfo>(); // 연결된 사용자를 저장할 벡터
 
@@ -33,9 +40,25 @@ public class Server extends JFrame {
 	}
 
 	public Server() {
+		loadUsersInfo();
 		init();
 	}
-
+	private void loadUsersInfo() {
+		String id;
+		String pw;
+		try {
+			in = new BufferedReader(new FileReader(FILE_NAME));
+			
+			while((id = in.readLine())!=null) {
+				pw = in.readLine();
+				logInfo.put(id, pw);
+			}
+			in.close();
+		}catch(Exception e) {
+			System.err.println(e);
+			System.exit(1);			
+		}
+	}
 	private void init() { // GUI를 구성하는 메소드
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 280, 400);

@@ -1,5 +1,7 @@
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -8,8 +10,9 @@ import java.util.Vector;
 
 class UserInfo extends Thread {
 	private static enum NETSTATE {
-		Lobby, Room, Game
+		Login, Lobby, Room, Game
 	};
+
 	private Server server;
 	private InputStream is;
 	private OutputStream os;
@@ -18,8 +21,8 @@ class UserInfo extends Thread {
 	private Socket user_socket;
 	private Vector<UserInfo> users;
 	private int playerNo;
-
-	private NETSTATE netState = NETSTATE.Lobby;
+	private BufferedWriter out; // 파일출력
+	private NETSTATE netState = NETSTATE.Login;
 
 	public void setNetState(NETSTATE netState) {
 		this.netState = netState;
@@ -32,7 +35,7 @@ class UserInfo extends Thread {
 	void changeUsers(Vector<UserInfo> users) {
 		this.users = users;
 	}
-	
+
 	UserInfo(Socket soc, Vector<UserInfo> vc, int playerNo, Server server) { // 생성자메소드
 		// 매개변수로 넘어온 자료 저장
 		this.server = server;
@@ -43,6 +46,21 @@ class UserInfo extends Thread {
 		User_network();
 	}
 
+	public void addUserInfo(String id, String pw) {
+		Server.logInfo.put(id, pw);
+		try {
+			out = new BufferedWriter(new FileWriter(Server.FILE_NAME, true));
+			out.write(id);
+			out.newLine();
+			out.write(pw);
+			out.newLine();
+			out.close();
+		} catch (Exception e) {
+			System.err.println(e);
+			System.exit(1);
+		}
+	}
+
 	void User_network() {
 		try {
 			is = user_socket.getInputStream();
@@ -50,7 +68,7 @@ class UserInfo extends Thread {
 			os = user_socket.getOutputStream();
 			dos = new DataOutputStream(os);
 
-			//dos.writeInt(playerNo);
+			// dos.writeInt(playerNo);
 			server.textArea.append("Player NO. " + playerNo + " 접속\n");
 			server.textArea.setCaretPosition(server.textArea.getText().length());
 		} catch (Exception e) {
@@ -71,7 +89,6 @@ class UserInfo extends Thread {
 		for (int i = 0; i < users.size(); i++) {
 			UserInfo imsi = users.elementAt(i);
 			imsi.send_Message(str);
-			server.textArea.append("/CREATEROOM 보냄 to " + i + "\n");
 		}
 	}
 
@@ -81,6 +98,7 @@ class UserInfo extends Thread {
 			byte[] bb;
 			bb = str.getBytes();
 			dos.write(bb); // .writeUTF(str);
+			server.textArea.append("보낸 메세지 : " + str + "\n");
 		} catch (IOException e) {
 			server.textArea.append("메시지 송신 에러 발생\n");
 			server.textArea.setCaretPosition(server.textArea.getText().length());
@@ -93,7 +111,7 @@ class UserInfo extends Thread {
 			String msg;
 			String splitMsg[];
 			try {
-			dis.read(buffer);
+				dis.read(buffer);
 			} catch (IOException e) {
 				try {
 					dos.close();
@@ -112,8 +130,34 @@ class UserInfo extends Thread {
 			msg = new String(buffer);
 			msg = msg.trim();
 			splitMsg = msg.split(" ");
-			if (splitMsg.length < 1) return;
+			if (splitMsg.length < 1)
+				return;
+			server.textArea.append("메세지 받음 : " + msg + "\n");
 			switch (netState) {
+			case Login:
+				if (splitMsg[0].equals("/LOGIN")) {
+					if (!Server.logInfo.containsKey(splitMsg[1])) {
+						send_Message("/NONEXTID");
+					} else if (!Server.logInfo.get(splitMsg[1]).equals(splitMsg[2])) {
+						send_Message("/WRONGPW");
+					} else {
+						send_Message("/SUCCESSLOGIN " + splitMsg[1] + " " + splitMsg[2]);
+						// textArea.append("ID " + user[0] + " 접속\n");
+						// textArea.setCaretPosition(textArea.getText().length());
+						send_Message(splitMsg[1] + "님 환영합니다."); // 연결된 사용자에게
+																// 정상접속을 알림
+						netState = NETSTATE.Lobby;
+					}
+				}
+				else if (splitMsg[0].equals("/SIGNUP")) {
+					if (Server.logInfo.containsKey(splitMsg[1])) {
+						send_Message("/EXTID");
+					} else {
+						send_Message("/SUCCESSSIGNUP");
+						addUserInfo(splitMsg[1], splitMsg[2]);
+					}
+				}
+				break;
 			case Lobby:
 				if (splitMsg[0].equals("/CREATEROOM")) {
 					broad_cast("/CREATEROOM");
@@ -122,13 +166,14 @@ class UserInfo extends Thread {
 					users.remove(this);
 					room.addUser(this);
 					server.addRoom(room);
-					netState = NETSTATE.Room;					
-				}
-				else if(splitMsg[0].equals("/ENTERROOM")) {
+					netState = NETSTATE.Room;
+				} else if (splitMsg[0].equals("/ENTERROOM")) {
 					// 자기 자신을 서버에서 제거하고 룸으로 이동.
 					users.remove(this);
-					server.addUserToRoom(this, Integer.parseInt(splitMsg[1])-1);
+					server.addUserToRoom(this, Integer.parseInt(splitMsg[1]) - 1);
 					netState = NETSTATE.Room;
+				} else {
+					broad_cast(msg);
 				}
 				break;
 			case Room:
@@ -136,10 +181,12 @@ class UserInfo extends Thread {
 					for (int i = 0; i < users.size(); i++) {
 						UserInfo imsi = users.elementAt(i);
 						imsi.setNetState(NETSTATE.Game);
-						msg = "/START" + " " + (i+1) + " " + users.size() + " "+ splitMsg[1];
+						msg = "/START" + " " + (i + 1) + " " + users.size() + " " + splitMsg[1];
 						imsi.send_Message(msg);
 					}
 					server.textArea.append("게임 시작!\n");
+				} else {
+					broad_cast(msg);
 				}
 				break;
 			case Game:
