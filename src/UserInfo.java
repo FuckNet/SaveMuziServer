@@ -122,11 +122,14 @@ class UserInfo extends Thread {
 			user_socket.close();
 			if (users.size() == 1) {
 				if (server.users.size() != 0) {
-					server.users.get(0).broad_cast("/RMROOM " + (server.rooms.indexOf(room) + 1));
+					server.users.get(0).broad_cast("/RMROOM " + server.rooms.indexOf(room) + 1);
 				}
 				server.rooms.removeElement(room);
 			}
 			users.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
+			if(users.size()!=0) {
+				users.get(0).broad_cast("/RMROOM " + playerNo);
+			}
 			server.textArea.append("현재 벡터에 담겨진 사용자 수 : " + users.size() + "\n");
 			server.textArea.append("사용자 접속 끊어짐 자원 반납\n");
 			server.textArea.setCaretPosition(server.textArea.getText().length());
@@ -228,6 +231,10 @@ class UserInfo extends Thread {
 						imsi.setNetState(NETSTATE.Game);
 						msg = "/START" + " " + (i + 1) + " " + users.size() + " " + splitMsg[1];
 						imsi.send_Message(msg);
+					}
+					if(server.users.size()!=0) {
+						server.users.get(0).broad_cast("/GAMESTARTROOM " + (server.rooms.indexOf(room)+1));
+				
 					}
 					server.textArea.append("게임 시작!\n");
 				} else if (splitMsg[0].equals("/EXIT")) {
