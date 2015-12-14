@@ -10,7 +10,7 @@ import java.util.Vector;
 
 class UserInfo extends Thread {
 	private static enum NETSTATE {
-		Login, Lobby, Room, Game
+		Home, Lobby, Room, Game
 	};
 
 	private Server server;
@@ -19,15 +19,20 @@ class UserInfo extends Thread {
 	private DataInputStream dis;
 	private DataOutputStream dos;
 	private Socket user_socket;
+	private Room room = null;
 	private Vector<UserInfo> users;
 	private int playerNo;
 	private BufferedWriter out; // 파일출력
-	private NETSTATE netState = NETSTATE.Login;
+	private NETSTATE netState = NETSTATE.Home;
 
 	private String userID;
 
 	public String getUserID() {
 		return userID;
+	}
+
+	public void setRoom(Room room) {
+		this.room = room;
 	}
 
 	public void setNetState(NETSTATE netState) {
@@ -74,7 +79,6 @@ class UserInfo extends Thread {
 			os = user_socket.getOutputStream();
 			dos = new DataOutputStream(os);
 
-			// dos.writeInt(playerNo);
 			server.textArea.append("Player NO. " + playerNo + " 접속\n");
 			server.textArea.setCaretPosition(server.textArea.getText().length());
 		} catch (Exception e) {
@@ -111,6 +115,28 @@ class UserInfo extends Thread {
 		}
 	}
 
+	void userExitInRoom() {
+		try {
+			dos.close();
+			dis.close();
+			user_socket.close();
+			if (users.size() == 1) {
+				if (server.users.size() != 0) {
+					server.users.get(0).broad_cast("/RMROOM " + (server.rooms.indexOf(room) + 1));
+				}
+				server.rooms.removeElement(room);
+			}
+			users.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
+			server.textArea.append("현재 벡터에 담겨진 사용자 수 : " + users.size() + "\n");
+			server.textArea.append("사용자 접속 끊어짐 자원 반납\n");
+			server.textArea.setCaretPosition(server.textArea.getText().length());
+			server.playerCnt--;
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
 	public void run() { // 메세지 받아서 처리하는 쓰레드
 		while (true) {
 			byte[] buffer = new byte[128];
@@ -120,14 +146,18 @@ class UserInfo extends Thread {
 				dis.read(buffer);
 			} catch (IOException e) {
 				try {
-					dos.close();
-					dis.close();
-					user_socket.close();
-					users.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
-					server.textArea.append("현재 벡터에 담겨진 사용자 수 : " + users.size() + "\n");
-					server.textArea.append("사용자 접속 끊어짐 자원 반납\n");
-					server.textArea.setCaretPosition(server.textArea.getText().length());
-					server.playerCnt--;
+					if (netState == NETSTATE.Room)
+						userExitInRoom();
+					else {
+						dos.close();
+						dis.close();
+						user_socket.close();
+						users.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
+						server.textArea.append("현재 벡터에 담겨진 사용자 수 : " + users.size() + "\n");
+						server.textArea.append("사용자 접속 끊어짐 자원 반납\n");
+						server.textArea.setCaretPosition(server.textArea.getText().length());
+						server.playerCnt--;
+					}
 					return;
 				} catch (Exception ee) {
 
@@ -140,7 +170,7 @@ class UserInfo extends Thread {
 				return;
 			server.textArea.append("메세지 받음 : " + msg + "\n");
 			switch (netState) {
-			case Login:
+			case Home:
 				if (splitMsg[0].equals("/LOGIN")) {
 					if (!Server.logInfo.containsKey(splitMsg[1])) {
 						send_Message("/NONEXTID");
@@ -182,9 +212,11 @@ class UserInfo extends Thread {
 					}
 					users.remove(this);
 					server.addUserToRoom(this, roomNumber - 1);
-					
+
 					send_Message(tempStr);
 					netState = NETSTATE.Room;
+				} else if (splitMsg[0].equals("/LOGOUT")) {
+					netState = NETSTATE.Home;
 				} else {
 					broad_cast(msg);
 				}
@@ -198,42 +230,20 @@ class UserInfo extends Thread {
 						imsi.send_Message(msg);
 					}
 					server.textArea.append("게임 시작!\n");
+				} else if (splitMsg[0].equals("/EXIT")) {
+					userExitInRoom();
+					return;
 				} else {
 					broad_cast(msg);
 				}
 				break;
 			case Game:
-				// try {
-				// // 사용자에게 받는 메세지
-				// byte[] b = new byte[128];
-				// dis.read(b);
-				// String msg = new String(b);
-				// msg = msg.trim();
-				// if(msg.equals("/PING")) {
-				// System.out.println(playerNo + " " +
-				// System.currentTimeMillis());
-				// continue;
-				// }
-				// InMessage(msg);
-				// } catch (IOException e) {
-				// try {
-				// dos.close();
-				// dis.close();
-				// user_socket.close();
-				// vc.removeElement(this); // 에러가난 현재 객체를 벡터에서 지운다
-				// textArea.append("현재 벡터에 담겨진 사용자 수 : " + vc.size() +
-				// "\n");
-				// textArea.append("사용자 접속 끊어짐 자원 반납\n");
-				// textArea.setCaretPosition(textArea.getText().length());
-				// playerNum--;
-				// return;
-				// } catch (Exception ee) {
-				//
-				// } // catch문 끝
-				// } // 바깥 catch문끝
-
+				if (splitMsg[0].equals("/EXIT")) {
+					userExitInRoom();
+					return;
+				}
 				break;
 			}
 		} // run메소드 끝
-	} // 내부 userinfo클래스끝
+	}
 }

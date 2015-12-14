@@ -96,8 +96,7 @@ public class Server extends JFrame {
 	void addRoom(Room room) {
 		this.rooms.add(room);
 	}
-	void addUserToRoom(UserInfo userInfo, int roomIdx) {
-		
+	void addUserToRoom(UserInfo userInfo, int roomIdx) {	
 		rooms.get(roomIdx).addUser(userInfo);
 	}
 	private void server_start() {

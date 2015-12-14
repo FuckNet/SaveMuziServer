@@ -7,6 +7,7 @@ public class Room {
    }
    void addUser(UserInfo user) {
       users.add(user);
+      user.setRoom(this);
       user.changeUsers(users);
    }
    public Vector<UserInfo> getUsers() {
